@@ -29,15 +29,23 @@ plotter = LivePlot(max_episodes, max_total_reward)
 
 # Create agent
 
+#Configuration of the Q Learning algorithm
 q_learning_config = QLearningConfig(batch_size = 200, gamma = 0.99, size_replay_min_to_train = 5, 
     learning_rate_start = 2e-3, learning_rate_end = 1e-7, time_learning_rate_end = 50000)
-policy = UCB1Policy(env.action_space.n)
 
+#Configuration of the Replay Memory
 replay_memory_config = ReplayMemoryConfig(memorySize = 500000, use_prioritized_replay = True, alpha = 0.7,
         beta_zero = 0.7, total_steps = 40000)
 
+#Configuration of the Dueling Architecture
 dueling_config = DuelingConfig(use_dueling = False, size_net_value = 200, size_net_adv = 200)
+
+#Configuration of the Bootstrapped DQN
 bootstrapping_config = BootstrappingConfig(nb_heads = 1)
+
+#Policy to use
+policy = UCB1Policy(env.action_space.n)
+
 
 agent = DoubleDQNAgent(env.action_space, env.observation_space, main_network_layers = network_layers,
     q_learning_config = q_learning_config, policy = policy, replay_memory_config = replay_memory_config,
@@ -88,4 +96,4 @@ for episode in range(max_episodes):
 env.monitor.close()
 file.close()
 
-#gym.upload(outdir, api_key='sk_3qdNeOXT7ujek0tSWxBnQ')
+#gym.upload(outdir, api_key='???')

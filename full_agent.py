@@ -11,10 +11,24 @@ from q_learning_config import *
 from replay_memory_config import *		
 		
 		
-
-
+##
+## @brief      Class implementing the Double Q Learning algorithm. Also Dueling + Bootstrapping + Prioritized Experience Replay
+##
 class DoubleDQNAgent:
-	"""docstring for DQNAgent"""
+
+	##
+	## @brief      Constructs the object.
+	##
+	## @param      self                  The object
+	## @param      action_space          The action space
+	## @param      observation_space     The observation space
+	## @param      main_network_layers   A list with the number of neurons in each layer
+	## @param      q_learning_config     The S learning configuration
+	## @param      replay_memory_config  The replay memory configuration
+	## @param      bootstrapping_config  The bootstrapping configuration
+	## @param      dueling_config        The dueling configuration
+	## @param      policy                The policy
+	##
 	def __init__(self, action_space, observation_space, main_network_layers = [200],
 		q_learning_config = QLearningConfig(), replay_memory_config = ReplayMemoryConfig(),
 		bootstrapping_config = BootstrappingConfig(), dueling_config = DuelingConfig(),
@@ -77,9 +91,11 @@ class DoubleDQNAgent:
 
 		self._tf_session.run(tf.initialize_all_variables())
 
-	def update_networks(self):
-		self._tf_session.run(self.copyTargetQNetworkOperations)
-
+	##
+	## @brief      Update the value of the learning rate over time
+	##
+	## @param      self  The object
+	##
 	def update_learning_rate(self):
 
 		a = (self.q_learning_config.learning_rate_start - self.q_learning_config.learning_rate_end) / (0 - self.q_learning_config.time_learning_rate_end)
@@ -88,8 +104,15 @@ class DoubleDQNAgent:
 		lr = a*self._time + b
 		self.learning_rate = max(lr, self.q_learning_config.learning_rate_end)
 
+	##
+	## @brief      Create a TensorfloW Q Network
+	##
+	## @param      self  The object
+	## @param      name  The name
+	##
+	## @return     The quarter network.
+	##
 	def build_q_network(self, name):
-		#Create a network
 
 		#State to predict the action values
 		state = tf.placeholder(tf.float32, [None, self._dim_state])
@@ -111,7 +134,6 @@ class DoubleDQNAgent:
 		tab_losses = []
 		tab_action_values = []
 		tab_td_errors = []
-
 
 		for i in range(self.bootstrapping_config.nb_heads):
 			action_values = None
@@ -147,9 +169,6 @@ class DoubleDQNAgent:
 			td_error = y - q_predicted
 			loss = tf.square(td_error)
 
-			#loss = tf.reduce_mean(td_error)
-
-			#tab_loss.append(loss)
 			tab_action_values.append(action_values)
 
 			tab_td_errors.append(td_error)
@@ -183,21 +202,55 @@ class DoubleDQNAgent:
 		self._tf_training[name] = training
 		self._tf_td_error_per_sample[name] = total_td_errors_per_sample
 
+	##
+	## @brief      Create the main network
+	##
+	## @param      self        The object
+	## @param      inputs      The inputs
+	## @param      name_scope  The name scope
+	## @param      reuse       Shared variables ?
+	##
+	## @return     Tf neural network
+	##
 	def create_network(self, inputs, name_scope, reuse = False):
 		net = inputs
 		net = slim.stack(net, slim.fully_connected, self.main_network_layers, activation_fn=tf.nn.relu, scope= name_scope, reuse=reuse,
 			weights_initializer=self.initializer, biases_initializer=self.initializer)
 		return net
 
+	##
+	## @brief      Sample a new head at each new episode (Bootstrapped DQN)
+	##
+	## @param      self  The object
+	##
 	def new_episode(self):
 		self.head_used = np.random.randint(self.bootstrapping_config.nb_heads)
 
+	##
+	## @brief      Predict the Q Values for one neural network
+	##
+	## @param      self         The object
+	## @param      name         The name of the neural network to use
+	## @param      observation  The observation
+	##
+	## @return     the Q Values
+	##
 	def predict_q_values(self, name, observation):
 		states = np.array(observation)
 		action_values = self._tf_action_values[name][self.head_used].eval(
 			feed_dict={self._tf_state[name]: states})
 		return action_values
 
+	##
+	## @brief      Update the Neural Network using a Double Q Learning algorithm
+	##
+	## @param      self         The object
+	## @param      prev_state   The previous state
+	## @param      prev_action  The previous action
+	## @param      reward       The reward
+	## @param      next_state   The next state
+	## @param      done         Is it a terminal state
+	##
 	def update_network(self, prev_state, prev_action, reward, next_state, done):
 		if np.random.randint(0,2) == 0:
 			#Update A
@@ -208,10 +261,19 @@ class DoubleDQNAgent:
 			self.create_experience('B', prev_state, prev_action, reward, next_state, done)
 			self.train('B')
 
+	##
+	## @brief      Add an experience to the experience replay
+	##
+	## @param      self         The object
+	## @param      name         The name
+	## @param      prev_state   The previous state
+	## @param      prev_action  The previous action
+	## @param      reward       The reward
+	## @param      next_state   The next state
+	## @param      done         Is it a terminal state
+	##
 	def create_experience(self, name , prev_state, prev_action, reward, next_state, done):
-		"""
-		keep an experience for later training.
-		"""
+
 		_prev_state = np.array(prev_state)
 		_next_state = np.array(next_state)
 		_reward = reward
@@ -221,6 +283,12 @@ class DoubleDQNAgent:
 
 		self.memory[name].store(ElementReplayMemory(_prev_state, _action_mask, _reward, _next_state, _done))
 
+	##
+	## @brief      Train a neural network using its own experience replay
+	##
+	## @param      self  The object
+	## @param      name  The name of the neural network to train
+	##
 	def train(self, name):
 		name_target = ''
 		name_train = ''
@@ -239,8 +307,7 @@ class DoubleDQNAgent:
 				w = [1.0 for e in batch]
 			else:
 				batch, w, e_ids = self.memory[name].generateRandomBatch(self._time)
-			#print(np.shape(w))
-			#print(w)
+
 			y = []
 			tab_q_values = self.predict_q_values(name_target,[e.next_state for e in batch])
 			for i,experience in enumerate(batch):
@@ -265,6 +332,16 @@ class DoubleDQNAgent:
 			if self.replay_memory_config.use_prioritized_replay:
 				self.memory[name].update_priority(e_ids, updated_td_errors)
 
+	##
+	## @brief      Select the next action to perform
+	##
+	## @param      self         The object
+	## @param      observation  The observation
+	## @param      reward       The reward
+	## @param      done         Is it a terminal state ?
+	##
+	## @return     The selected action
+	##
 	def act(self, observation, reward, done):
 		self._time += 1
 		self.update_learning_rate()
