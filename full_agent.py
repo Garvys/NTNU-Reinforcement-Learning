@@ -5,57 +5,10 @@ from copy import deepcopy
 from policy import *
 from replay_memory import *
 from prioritized_replay_memory import *
-
-class DuelingConfig:
-	"""docstring for DuelingConfig"""
-	def __init__(self, use_dueling = False, size_net_value = 100, size_net_adv = 100):
-		self.use_dueling = use_dueling
-		self.size_net_value = size_net_value
-		self.size_net_adv = size_net_adv
-
-	def __repr__(self):
-		return "Dueling config : {} {} {}".format(self.use_dueling, self.size_net_value, self.size_net_adv)
-
-class BootstrappingConfig:
-	"""docstring for BootstrappingConfig"""
-	def __init__(self, nb_heads = 1, size_layer_head = 100):
-		self.nb_heads = nb_heads
-		self.size_layer_head = size_layer_head
-
-	def __repr__(self):
-		return "Bootstrapping config : {} {}".format(self.nb_heads, self.size_layer_head)
-
-class QLearningConfig:
-	"""docstring for QLearningConfig"""
-	def __init__(self, batch_size = 200, gamma = 0.95, size_replay_min_to_train = 100,
-		learning_rate_start = 1e-3, learning_rate_end = 1e-8, time_learning_rate_end = 10000):
-		self.batch_size = batch_size
-		self.gamma = gamma
-		self.size_replay_min_to_train = size_replay_min_to_train
-
-		#Learning Rate
-		self.learning_rate_start = learning_rate_start
-		self.learning_rate_end = learning_rate_end
-		self.time_learning_rate_end = time_learning_rate_end
-
-	def __repr__(self):
-		return "QLearning condig : {} {} {} {} {} {}".format(self.batch_size, self.gamma, self.size_replay_min_to_train, self.learning_rate_start, self.learning_rate_end, self.time_learning_rate_end)
-
-class ReplayMemoryConfig(object):
-	"""docstring for ReplayMemoryConfig"""
-	def __init__(self, use_prioritized_replay = False, memorySize = 500, alpha = 0.7,
-		beta_zero = 0.5, total_steps = 4000):
-		self.use_prioritized_replay = use_prioritized_replay
-		self.memorySize = memorySize
-
-		#Prioritized Replay
-		self.alpha = alpha
-		self.beta_zero = beta_zero
-		self.total_steps = total_steps
-
-	def __repr__(self):
-		return 'Replay config : {} {} {} {} {}'.format(self.use_prioritized_replay, self.memorySize, self.alpha, self.beta_zero, self.total_steps)
-		
+from dueling_config import *
+from bootstrapping_config import *
+from q_learning_config import *
+from replay_memory_config import *		
 		
 		
 
@@ -317,4 +270,4 @@ class DoubleDQNAgent:
 		self.update_learning_rate()
 		q_values = (self.predict_q_values('A', [observation]) + self.predict_q_values('B', [observation])) / 2.0
 		
-		return self.policy.getAction(observation, reward, done, self._action_space, q_values)
+		return self.policy.getAction(observation, self._action_space, q_values)

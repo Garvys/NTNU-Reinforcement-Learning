@@ -2,10 +2,23 @@ from replay_memory import *
 from binary_heap_max import *
 import numpy as np
 
+##
+## @brief      Class for the Prioritized Experiecne Replay Memory.
+##
 class PrioritizedReplayMemory:
-	"""docstring for PrioritizedReplayMemory"""
+
+	##
+	## @brief      Constructs the object.
+	##
+	## @param      self                  The object
+	## @param      sizeMax               The size maximum
+	## @param      replay_memory_config  The replay memory configuration
+	## @param      batch_size            The batch size
+	## @param      learn_start           The learning start
+	##
 	def __init__(self, sizeMax, replay_memory_config , batch_size = 500, learn_start = 100):
 
+		#Implemented using a binary heap
 		self.priority_queue = BinaryHeapMax()
 		self.sizeMax = sizeMax
 		self.batch_size = batch_size
@@ -27,9 +40,22 @@ class PrioritizedReplayMemory:
 			p_i = pow(1.0 / float(rank), self.alpha)
 			self.probas.append(p_i)
 
+	##
+	## @brief      Gets the number of elements stored in the memory
+	##
+	## @param      self  The object
+	##
+	## @return     The number of elements stored in the memory
+	##
 	def nbElementsStored(self):
 		return len(self.priority_queue.tab)
 
+	##
+	## @brief      Store a new element in the memory
+	##
+	## @param      self        The object
+	## @param      experience  The experience to store
+	##
 	def store(self, experience):
 		insert_index = self.next_experience_index % self.sizeMax
 		self._experience[insert_index] = deepcopy(experience)
@@ -39,11 +65,26 @@ class PrioritizedReplayMemory:
 		self.next_experience_index += 1
 
 
+	##
+	## @brief      Update the priority of some experiences stored in the memory
+	##
+	## @param      self                  The object
+	## @param      expericences_indices  The expericences indices that have to be updated
+	## @param      deltas                The new delatas
+	##
 	def update_priority(self, expericences_indices, deltas):
 		for i in range(len(expericences_indices)):
 			#print(deltas[i], abs(deltas[i]))
 			self.priority_queue.update(expericences_indices[i], abs(deltas[i]))
 
+	##
+	## @brief      Generate the boundaries and the probabilities of each segment.
+	##     			Allow to sample more efficiently the mini batch from the memory
+	##
+	## @param      self  The object
+	##
+	## @return     The boundaries and the probabilities of each segment
+	##
 	def get_boundaries(self):
 		boundaries = []
 
@@ -69,7 +110,15 @@ class PrioritizedReplayMemory:
 
 		return boundaries, probas_segments
 
-	def generateQuickRandomBatch(self, global_step):
+	##
+	## @brief      Sample a mini batch from the prioritized relay memory
+	##
+	## @param      self         The object
+	## @param      global_step  The global step
+	##
+	## @return     mini-batch
+	##
+	def generateRandomBatch(self, global_step):
 
 		beta = min(self.beta_zero + (global_step - self.learn_start - 1) * self.beta_grad, 1)
 		#beta = self.beta_zero
@@ -97,58 +146,3 @@ class PrioritizedReplayMemory:
 		w = [e / w_max for e in w]
 
 		return experience_batch, w, experience_ids
-
-	def generateRandomBatch(self, global_step):
-		return self.generateQuickRandomBatch(global_step)
-		beta = min(self.beta_zero + (global_step - self.learn_start - 1) * self.beta_grad, 1)
-		#beta = self.beta_zero
-		self.priority_queue.sort_heap()
-		nb_elements_stored = len(self.priority_queue.tab)
-
-		#boundaries = self.get_boundaries()
-		experience_ids = []
-		experience_batch = []
-		list_indexes = []
-
-		probas = []
-
-		sum_probas = sum(self.probas[:nb_elements_stored])
-		probas = [p / sum_probas for p in self.probas[:nb_elements_stored]]
-
-		probas_experiences_selected = []
-		for i in range(self.batch_size):
-			index = np.random.choice(list(range(0, len(self.priority_queue.tab))), p = probas)
-			e_id = self.priority_queue.tab[index].data
-
-			experience_ids.append(e_id)
-			experience_batch.append(self._experience[e_id])
-			list_indexes.append(index)
-			probas_experiences_selected.append(probas[index])
-
-
-
-		##############
-
-
-		#p_i = [pow(1.0 / float(1 + i), self.alpha) for i in list_indexes]
-		#sum_p_i = sum(p_i)
-
-		#P_i = [e / sum_p_i for e in p_i]
-
-		w = [pow(nb_elements_stored * P, - beta) for P in probas_experiences_selected]
-		w_max = max(w)
-		w = [e / w_max for e in w]
-
-		return experience_batch, w, experience_ids
-
-
-
-
-
-
-
-
-
-
-
-
